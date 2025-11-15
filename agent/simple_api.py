@@ -13,6 +13,8 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app.agents.content.agent import ContentAgent
+from app.agents.brand_profile.agent import BrandProfileAgent
+from app.services.llm_service import LLMService
 from app.core.config import settings
 
 app = FastAPI(title="Social Media Agent API (Simple)")
@@ -32,8 +34,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize agent
+# Initialize agents
 content_agent = ContentAgent()
+llm_service = LLMService()
+brand_profile_agent = BrandProfileAgent(llm_service=llm_service)
 
 # Pydantic models
 class LoginRequest(BaseModel):
@@ -64,6 +68,18 @@ class ContentGenerateRequest(BaseModel):
     content_type: str = "post"
     count: int = 2
     additional_instructions: Optional[str] = None
+
+class SocialLinks(BaseModel):
+    instagram: Optional[str] = None
+    linkedin: Optional[str] = None
+    twitter: Optional[str] = None
+    tiktok: Optional[str] = None
+    facebook: Optional[str] = None
+
+class AutoProfileRequest(BaseModel):
+    website: str
+    socials: Optional[SocialLinks] = None
+    use_playwright: bool = False
 
 # In-memory storage
 DEMO_USER = {
@@ -171,6 +187,42 @@ async def get_content(limit: int = 10):
         "total": 0,
         "items": []
     }
+
+@app.post("/api/v1/brands/auto_profile")
+async def auto_generate_brand_profile(request: AutoProfileRequest):
+    """
+    Automatically generate a brand profile by scraping website and social media.
+    """
+    try:
+        # Prepare task
+        task = {
+            "website": request.website,
+            "socials": request.socials.dict() if request.socials else {},
+            "use_playwright": request.use_playwright
+        }
+
+        # Execute brand profile research
+        result = await brand_profile_agent.execute(task, context={})
+
+        if not result.get("success"):
+            return {
+                "success": False,
+                "message": result.get("message", "Brand profile generation failed"),
+                "data": None,
+                "metadata": result.get("metadata")
+            }
+
+        return {
+            "success": True,
+            "message": result.get("message", "Brand profile generated successfully"),
+            "data": result.get("data"),
+            "metadata": result.get("metadata")
+        }
+
+    except Exception as e:
+        import logging
+        logging.error(f"Error in auto_generate_brand_profile: {str(e)}", exc_info=e)
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
