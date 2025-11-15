@@ -11,5 +11,15 @@ export default defineConfig({
         changeOrigin: true,
       }
     }
+  },
+  preview: {
+    host: '0.0.0.0',
+    port: process.env.PORT || 3000,
+    strictPort: false,
+    allowedHosts: [
+      'localhost',
+      '.onrender.com',
+      'social-media-agent-frontend-afwe.onrender.com'
+    ]
   }
 })
