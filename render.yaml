@@ -6,9 +6,8 @@ services:
     region: oregon
     plan: free
     branch: main
-    rootDir: agent
-    buildCommand: pip install -r requirements-render.txt
-    startCommand: python simple_api.py
+    buildCommand: cd agent && pip install -r requirements-render.txt
+    startCommand: cd agent && python simple_api.py
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
