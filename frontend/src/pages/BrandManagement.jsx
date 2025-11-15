@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import { brandAPI } from '../services/api'
 import toast from 'react-hot-toast'
-import { FiPlus, FiEdit2, FiTrash2, FiBriefcase } from 'react-icons/fi'
+import { FiPlus, FiEdit2, FiTrash2, FiBriefcase, FiGlobe } from 'react-icons/fi'
+import AutoBrandProfile from '../components/AutoBrandProfile'
 
 export default function BrandManagement() {
   const [brands, setBrands] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [showAutoProfile, setShowAutoProfile] = useState(false)
   const [editingBrand, setEditingBrand] = useState(null)
   const [formData, setFormData] = useState({
     name: '',
@@ -80,6 +82,26 @@ export default function BrandManagement() {
     }
   }
 
+  const handleAutoProfileGenerated = (profileData) => {
+    // Auto-fill form with generated profile data
+    setFormData({
+      name: profileData.brand_name || '',
+      niche: profileData.products_services?.[0] || '',
+      brand_voice: profileData.tone_voice || '',
+      target_audience: profileData.target_audience || '',
+      goals: profileData.brand_values?.join(', ') || '',
+    })
+    setShowAutoProfile(false)
+    setShowModal(true)
+    toast.success('Brand profile loaded! Review and save.')
+  }
+
+  const openAutoProfile = () => {
+    setShowAutoProfile(true)
+    setShowModal(false)
+    setEditingBrand(null)
+  }
+
   return (
     <div className="max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-8">
@@ -87,9 +109,14 @@ export default function BrandManagement() {
           <h1 className="text-3xl font-bold text-gray-900">Brand Management</h1>
           <p className="mt-2 text-gray-600">Manage your brand profiles and settings</p>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn btn-primary flex items-center gap-2">
-          <FiPlus /> Add Brand
-        </button>
+        <div className="flex gap-3">
+          <button onClick={openAutoProfile} className="btn bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2">
+            <FiGlobe /> Auto-Generate Brand
+          </button>
+          <button onClick={() => setShowModal(true)} className="btn btn-primary flex items-center gap-2">
+            <FiPlus /> Add Manually
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -99,9 +126,14 @@ export default function BrandManagement() {
           <FiBriefcase className="mx-auto mb-4 text-gray-400" size={48} />
           <h3 className="text-xl font-medium text-gray-900 mb-2">No brands yet</h3>
           <p className="text-gray-600 mb-6">Create your first brand to get started</p>
-          <button onClick={() => setShowModal(true)} className="btn btn-primary">
-            <FiPlus className="inline mr-2" /> Add Your First Brand
-          </button>
+          <div className="flex gap-3 justify-center">
+            <button onClick={openAutoProfile} className="btn bg-purple-600 hover:bg-purple-700 text-white">
+              <FiGlobe className="inline mr-2" /> Auto-Generate Brand
+            </button>
+            <button onClick={() => setShowModal(true)} className="btn btn-primary">
+              <FiPlus className="inline mr-2" /> Add Manually
+            </button>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -131,7 +163,19 @@ export default function BrandManagement() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Auto Profile Modal */}
+      {showAutoProfile && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl max-w-3xl w-full p-6 my-8">
+            <AutoBrandProfile
+              onProfileGenerated={handleAutoProfileGenerated}
+              onCancel={() => setShowAutoProfile(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Manual Add/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6">

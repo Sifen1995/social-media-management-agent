@@ -53,6 +53,7 @@ export const brandAPI = {
   create: (data) => api.post('/brands', data),
   update: (id, data) => api.put(`/brands/${id}`, data),
   delete: (id) => api.delete(`/brands/${id}`),
+  autoProfile: (data) => api.post('/brands/auto_profile', data),
 }
 
 // Content API

@@ -15,6 +15,9 @@ from app.schemas.brand import (
     BrandUpdate,
     BrandResponse,
     BrandWithStats,
+    AutoProfileRequest,
+    AutoProfileResponse,
+    BrandProfileData,
 )
 
 router = APIRouter()
@@ -212,3 +215,86 @@ async def delete_brand(
     db.commit()
 
     return None
+
+
+@router.post("/auto_profile", response_model=AutoProfileResponse)
+async def auto_generate_brand_profile(
+    request: AutoProfileRequest,
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Automatically generate a brand profile by scraping website and social media.
+
+    This endpoint uses web scraping and AI analysis to automatically research
+    a brand and generate a comprehensive profile.
+
+    - **website**: Website URL to scrape (required)
+    - **socials**: Social media profile URLs (optional)
+      - instagram: Instagram profile URL
+      - linkedin: LinkedIn company page URL
+      - twitter: Twitter/X profile URL
+      - tiktok: TikTok profile URL
+      - facebook: Facebook page URL
+    - **use_playwright**: Use Playwright for JavaScript-heavy sites (optional, default: false)
+
+    Returns:
+    - Structured brand profile with brand name, overview, tone of voice, target audience, etc.
+    - Source URLs used for research
+    - Data quality metadata
+
+    Example request:
+    ```json
+    {
+      "website": "https://example.com",
+      "socials": {
+        "instagram": "https://instagram.com/example",
+        "linkedin": "https://linkedin.com/company/example"
+      },
+      "use_playwright": false
+    }
+    ```
+    """
+    from app.agents.brand_profile.agent import BrandProfileAgent
+    from app.services.llm_service import LLMService
+
+    try:
+        # Initialize agent
+        llm_service = LLMService()
+        agent = BrandProfileAgent(llm_service=llm_service)
+
+        # Prepare task
+        task = {
+            "website": request.website,
+            "socials": request.socials.dict() if request.socials else {},
+            "use_playwright": request.use_playwright
+        }
+
+        # Execute brand profile research
+        result = await agent.execute(task, context={})
+
+        if not result.get("success"):
+            return AutoProfileResponse(
+                success=False,
+                message=result.get("message", "Brand profile generation failed"),
+                data=None,
+                metadata=result.get("metadata")
+            )
+
+        # Convert result data to BrandProfileData
+        profile_data = result.get("data", {})
+        brand_profile = BrandProfileData(**profile_data)
+
+        return AutoProfileResponse(
+            success=True,
+            message=result.get("message", "Brand profile generated successfully"),
+            data=brand_profile,
+            metadata=result.get("metadata")
+        )
+
+    except Exception as e:
+        import logging
+        logging.error(f"Error in auto_generate_brand_profile: {str(e)}", exc_info=e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate brand profile: {str(e)}"
+        )

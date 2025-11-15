@@ -9,3 +9,7 @@ passlib[bcrypt]==1.7.4
 google-generativeai==0.3.2
 openai==1.6.1
 anthropic==0.8.1
+requests==2.31.0
+beautifulsoup4==4.12.3
+lxml==5.1.0
+playwright==1.41.0
