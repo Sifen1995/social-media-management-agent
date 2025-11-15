@@ -30,14 +30,10 @@ services:
     region: oregon
     plan: free
     branch: main
-    rootDir: frontend
-    buildCommand: npm install && npm run build
-    startCommand: npm run preview -- --host 0.0.0.0 --port $PORT
+    buildCommand: cd frontend && npm install && npm run build
+    startCommand: cd frontend && npm run preview -- --host 0.0.0.0 --port $PORT
     envVars:
       - key: NODE_VERSION
         value: 18.18.0
       - key: VITE_API_URL
-        fromService:
-          type: web
-          name: social-media-agent-api
-          envVarKey: RENDER_EXTERNAL_URL
+        value: https://social-media-agent-api-afwe.onrender.com/api/v1
