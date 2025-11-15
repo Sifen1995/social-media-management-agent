@@ -9,6 +9,13 @@ The Social Media Management Agent is a comprehensive platform that combines the 
 
 ## Key Features
 
+### Auto Brand Profile Scraper (NEW!)
+- **Automated Brand Research**: Automatically scrape and analyze websites and social media profiles
+- **AI-Powered Extraction**: Use LLM to extract brand name, mission, tone of voice, target audience, and values
+- **Multi-Source Analysis**: Combine data from company websites and 5+ social platforms (Instagram, LinkedIn, Twitter, TikTok, Facebook)
+- **One-Click Onboarding**: Auto-fill brand creation forms with comprehensive, AI-generated brand profiles
+- **Smart Data Quality Assessment**: Get quality indicators (excellent/good/insufficient) for each research session
+
 ### AI-Powered Content Generation
 - **Multi-Platform Support**: Generate platform-specific content optimized for Instagram, Facebook, Twitter/X, LinkedIn, TikTok, and YouTube
 - **Content Variations**: Create multiple variations of posts to A/B test what resonates with your audience
@@ -17,6 +24,7 @@ The Social Media Management Agent is a comprehensive platform that combines the 
 - **Caption Optimization**: Improve existing captions to increase engagement
 
 ### Intelligent Agent System
+- **Brand Profile Agent**: Automatically researches brands through web scraping and LLM analysis (NEW!)
 - **Content Agent**: Specialized in creating engaging, platform-specific social media content
 - **Planner Agent**: Decomposes complex social media strategies into actionable tasks
 - **Scheduler Agent**: Optimizes posting times based on audience activity and engagement patterns
@@ -48,6 +56,7 @@ The Social Media Management Agent is a comprehensive platform that combines the 
 ### Backend
 - **Framework**: FastAPI (Python 3.11+)
 - **AI/LLM**: Google Gemini (configurable for other providers)
+- **Web Scraping**: BeautifulSoup4, Playwright (for JS-heavy sites)
 - **Database**: SQLAlchemy with PostgreSQL support
 - **Task Queue**: Celery for background jobs
 - **Authentication**: JWT-based authentication
@@ -68,6 +77,7 @@ social-media-management-agent/
 │   ├── app/
 │   │   ├── agents/                # AI agents
 │   │   │   ├── base/             # Base agent classes
+│   │   │   ├── brand_profile/    # Brand research agent (NEW!)
 │   │   │   ├── content/          # Content generation agent
 │   │   │   ├── planner/          # Planning agent
 │   │   │   ├── scheduler/        # Scheduling agent
@@ -75,6 +85,11 @@ social-media-management-agent/
 │   │   │   ├── engagement/       # Engagement agent
 │   │   │   ├── social_listening/ # Social listening agent
 │   │   │   └── optimizer/        # Optimization agent
+│   │   ├── scraper/              # Web scraping module (NEW!)
+│   │   │   ├── website_scraper.py   # Website scraper
+│   │   │   ├── social_scraper.py    # Social media scraper
+│   │   │   ├── extractor.py         # Data extraction
+│   │   │   └── base.py              # Scraper utilities
 │   │   ├── api/                  # API endpoints
 │   │   │   └── v1/
 │   │   │       └── endpoints/
@@ -213,11 +228,32 @@ The application will be available at:
 
 ## Usage
 
-### Creating Your First Brand
+### Auto-Generate Brand Profile (NEW!)
 
 1. Sign up/Login to the application
 2. Navigate to **Brand Management**
-3. Click **Create New Brand**
+3. Click **Auto-Generate Brand** (purple button)
+4. Enter your website URL and social media profiles:
+   - Website URL (required)
+   - Instagram, LinkedIn, Twitter, TikTok, Facebook (optional)
+5. Click **Generate Brand Profile**
+6. Wait 20-60 seconds for AI to research and analyze
+7. Review the generated profile with:
+   - Brand name, overview, mission
+   - Tone of voice and target audience
+   - Products/services and brand values
+   - Frequently used hashtags
+   - Content strategy recommendations
+8. Click **Use This Profile** to auto-fill the brand form
+9. Review and save!
+
+**See [AUTO_BRAND_PROFILE_GUIDE.md](AUTO_BRAND_PROFILE_GUIDE.md) for detailed usage guide.**
+
+### Creating Your First Brand (Manual)
+
+1. Sign up/Login to the application
+2. Navigate to **Brand Management**
+3. Click **Add Manually**
 4. Fill in brand details:
    - Brand name
    - Description
@@ -281,6 +317,7 @@ Once the backend is running, visit:
 - `DELETE /api/v1/content/{id}` - Delete content
 
 #### Brands
+- `POST /api/v1/brands/auto_profile` - Auto-generate brand profile (NEW!)
 - `GET /api/v1/brands/` - List all brands
 - `POST /api/v1/brands/` - Create brand
 - `GET /api/v1/brands/{id}` - Get brand details
