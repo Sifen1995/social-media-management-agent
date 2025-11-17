@@ -6,6 +6,7 @@ from app.agents.base.agent import BaseAgent
 from app.agents.content.prompts import (
     CONTENT_SYSTEM_PROMPT,
     CONTENT_GENERATION_PROMPT,
+    ENHANCED_CONTENT_GENERATION_PROMPT,
     HASHTAG_GENERATION_PROMPT,
     CAPTION_OPTIMIZATION_PROMPT,
     HOOK_GENERATOR_PROMPT
@@ -82,7 +83,7 @@ class ContentAgent(BaseAgent):
 
         Args:
             task: Content generation parameters
-            context: Brand context
+            context: Brand context (may include brand_profile and strategy_plan)
 
         Returns:
             List of content variations
@@ -92,6 +93,17 @@ class ContentAgent(BaseAgent):
         content_type = task.get("content_type", "post")
         count = task.get("count", 3)
 
+        # Check if we have enhanced data (brand_profile and strategy_plan)
+        brand_profile = context.get("brand_profile") or task.get("brand_profile")
+        strategy_plan = context.get("strategy_plan") or task.get("strategy_plan")
+
+        # Use enhanced generation if we have strategy data
+        if brand_profile and strategy_plan:
+            return await self._generate_enhanced_content(
+                platform, topic, content_type, count, brand_profile, strategy_plan, task
+            )
+
+        # Fallback to original generation
         brand = context.get("brand", {})
         brand_voice = brand.get("brand_voice", "professional and engaging")
         target_audience = brand.get("target_audience", "general audience")
@@ -127,6 +139,109 @@ class ContentAgent(BaseAgent):
                 "caption": response,
                 "hashtags": [],
                 "cta": "Engage with us!",
+                "additional_notes": "Generated with fallback"
+            }]
+
+    async def _generate_enhanced_content(
+        self,
+        platform: str,
+        topic: str,
+        content_type: str,
+        count: int,
+        brand_profile: Dict[str, Any],
+        strategy_plan: Dict[str, Any],
+        task: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """
+        Generate content using enhanced strategy-driven approach.
+
+        Args:
+            platform: Target platform
+            topic: Content topic
+            content_type: Type of content
+            count: Number of variations
+            brand_profile: Full brand profile from scraping
+            strategy_plan: Platform strategy from strategy agent
+            task: Additional task parameters
+
+        Returns:
+            Enhanced content variations
+        """
+        # Extract brand info
+        brand_name = brand_profile.get("brand_name", "Brand")
+        brand_overview = brand_profile.get("overview", "")
+        brand_mission = brand_profile.get("mission", "")
+        brand_voice = brand_profile.get("tone_voice", "professional")
+        target_audience = brand_profile.get("target_audience", "general audience")
+        brand_values = ", ".join(brand_profile.get("brand_values", []))
+
+        # Extract platform strategy
+        platform_strategy = strategy_plan.get("platforms", {}).get(platform, {})
+
+        recommended_formats = ", ".join(
+            platform_strategy.get("content_formats", {}).get("primary_formats", ["post"])
+        )
+
+        content_mix = str(platform_strategy.get("content_formats", {}).get("content_mix", {}))
+
+        engagement_tactics = ", ".join(
+            platform_strategy.get("engagement_tactics", {}).get("tactics", [])
+        )
+
+        hashtag_strategy = str(platform_strategy.get("hashtag_strategy", {}))
+
+        best_practices = ", ".join(
+            platform_strategy.get("platform_tips", {}).get("algorithm_optimization", [])
+        )
+
+        requirements = task.get("requirements", "Create engaging, on-brand content")
+
+        # Define content styles
+        styles = ["Formal & Professional", "Casual & Conversational", "Bold & Promotional"]
+        style_1, style_2, style_3 = styles[0], styles[1], styles[2]
+
+        prompt = ENHANCED_CONTENT_GENERATION_PROMPT.format(
+            count=count,
+            content_type=content_type,
+            platform=platform,
+            brand_name=brand_name,
+            brand_overview=brand_overview[:200],
+            brand_mission=brand_mission[:200],
+            brand_voice=brand_voice,
+            target_audience=target_audience,
+            brand_values=brand_values[:200],
+            topic=topic,
+            recommended_formats=recommended_formats,
+            content_mix=content_mix,
+            engagement_tactics=engagement_tactics,
+            hashtag_strategy=hashtag_strategy[:300],
+            best_practices=best_practices[:200],
+            requirements=requirements,
+            style_1=style_1,
+            style_2=style_2,
+            style_3=style_3
+        )
+
+        response = await self.llm_service.generate_completion(
+            system_prompt=CONTENT_SYSTEM_PROMPT,
+            user_prompt=prompt,
+            temperature=0.8,
+            response_format="json"
+        )
+
+        try:
+            content_variations = json.loads(response)
+            return content_variations if isinstance(content_variations, list) else [content_variations]
+        except json.JSONDecodeError:
+            # Fallback to basic generation
+            return [{
+                "variation": 1,
+                "style": style_1,
+                "hook": "Check this out!",
+                "caption": response,
+                "hashtags": [],
+                "cta": "Engage with us!",
+                "content_format": content_type,
                 "additional_notes": "Generated with fallback"
             }]
 

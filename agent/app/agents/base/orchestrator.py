@@ -190,6 +190,264 @@ class AgentOrchestrator:
 
         return await self.execute_task("planner", task, context)
 
+    async def execute_complete_pipeline(
+        self,
+        website_url: str,
+        social_links: Dict[str, str],
+        platforms: List[str],
+        content_topics: List[str],
+        credentials: Optional[Dict[str, Any]] = None,
+        mode: str = "generate_only"  # generate_only, schedule, or post
+    ) -> Dict[str, Any]:
+        """
+        Execute the complete multi-agent pipeline from brand research to content posting.
+
+        Pipeline Steps:
+        1. Scrape company information (brand_profile agent)
+        2. Generate platform strategy (strategy agent)
+        3. Generate text content (content agent)
+        4. Generate graphics (graphics agent)
+        5. Schedule or post content (poster agent)
+
+        Args:
+            website_url: Company website URL
+            social_links: Dict of social media links
+            platforms: Target platforms for content
+            content_topics: List of content topics to generate
+            credentials: Platform API credentials (required for posting)
+            mode: Pipeline mode - generate_only, schedule, or post
+
+        Returns:
+            Complete pipeline results with all outputs
+        """
+        self.logger.info("Starting complete multi-agent pipeline")
+
+        pipeline_results = {
+            "started_at": self._get_timestamp(),
+            "steps": {},
+            "outputs": {
+                "company_profile": None,
+                "strategy_plan": None,
+                "content_batch": None,
+                "graphics": None,
+                "posting_results": None
+            },
+            "status": "in_progress"
+        }
+
+        context = {
+            "output_dir": "outputs",
+            "pipeline_mode": mode
+        }
+
+        try:
+            # Step 1: Scrape company information
+            self.logger.info("Step 1/5: Scraping company information...")
+            brand_task = {
+                "website": website_url,
+                "socials": social_links,
+                "use_playwright": False
+            }
+
+            brand_result = await self.execute_task("brand_profile", brand_task, context)
+            pipeline_results["steps"]["brand_profile"] = {
+                "success": brand_result.get("success"),
+                "completed_at": self._get_timestamp()
+            }
+
+            if not brand_result.get("success"):
+                pipeline_results["status"] = "failed_at_brand_profile"
+                pipeline_results["error"] = brand_result.get("message")
+                return pipeline_results
+
+            company_profile = brand_result.get("data")
+            pipeline_results["outputs"]["company_profile"] = company_profile
+            context["brand_profile"] = company_profile
+
+            # Step 2: Generate platform strategy
+            self.logger.info("Step 2/5: Generating platform strategy...")
+            strategy_task = {
+                "brand_profile": company_profile,
+                "platforms": platforms,
+                "mode": "comprehensive"
+            }
+
+            strategy_result = await self.execute_task("strategy", strategy_task, context)
+            pipeline_results["steps"]["strategy"] = {
+                "success": strategy_result.get("success"),
+                "completed_at": self._get_timestamp()
+            }
+
+            if not strategy_result.get("success"):
+                self.logger.warning("Strategy generation failed, continuing with defaults")
+                strategy_plan = {}
+            else:
+                strategy_plan = strategy_result.get("data")
+                pipeline_results["outputs"]["strategy_plan"] = strategy_plan
+                context["strategy_plan"] = strategy_plan
+
+            # Step 3: Generate text content for all topics and platforms
+            self.logger.info("Step 3/5: Generating text content...")
+            content_batch = []
+
+            for topic in content_topics:
+                for platform in platforms:
+                    content_task = {
+                        "platform": platform,
+                        "action": "generate",
+                        "topic": topic,
+                        "content_type": "post",
+                        "count": 3,
+                        "brand_profile": company_profile,
+                        "strategy_plan": strategy_plan
+                    }
+
+                    content_result = await self.execute_task("content", content_task, context)
+
+                    if content_result.get("success"):
+                        variations = content_result.get("data", [])
+                        for variation in variations:
+                            variation["platform"] = platform
+                            variation["topic"] = topic
+                            variation["id"] = f"{platform}_{topic}_{variation.get('variation', 1)}"
+                            content_batch.append(variation)
+
+            pipeline_results["steps"]["content_generation"] = {
+                "success": len(content_batch) > 0,
+                "items_generated": len(content_batch),
+                "completed_at": self._get_timestamp()
+            }
+
+            pipeline_results["outputs"]["content_batch"] = content_batch
+
+            # Save content batch to file
+            self._save_content_batch(content_batch, context)
+
+            # Step 4: Generate graphics
+            self.logger.info("Step 4/5: Generating graphics...")
+            graphics_results = []
+
+            for content in content_batch[:10]:  # Limit to first 10 for demo
+                graphics_task = {
+                    "content": content,
+                    "platform": content.get("platform"),
+                    "mode": "specification",
+                    "brand_profile": company_profile
+                }
+
+                graphics_result = await self.execute_task("graphics", graphics_task, context)
+
+                if graphics_result.get("success"):
+                    graphics_results.append(graphics_result.get("data"))
+
+            pipeline_results["steps"]["graphics_generation"] = {
+                "success": len(graphics_results) > 0,
+                "items_generated": len(graphics_results),
+                "completed_at": self._get_timestamp()
+            }
+
+            pipeline_results["outputs"]["graphics"] = graphics_results
+
+            # Step 5: Post or schedule content
+            if mode in ["schedule", "post"]:
+                self.logger.info("Step 5/5: Posting/scheduling content...")
+
+                poster_task = {
+                    "content": content_batch,
+                    "platforms": platforms,
+                    "credentials": credentials or {},
+                    "mode": mode
+                }
+
+                poster_result = await self.execute_task("poster", poster_task, context)
+                pipeline_results["steps"]["posting"] = {
+                    "success": poster_result.get("success"),
+                    "completed_at": self._get_timestamp()
+                }
+
+                pipeline_results["outputs"]["posting_results"] = poster_result.get("data")
+            else:
+                self.logger.info("Step 5/5: Skipping posting (generate_only mode)")
+                pipeline_results["steps"]["posting"] = {
+                    "success": True,
+                    "skipped": True,
+                    "reason": "generate_only mode"
+                }
+
+            # Mark pipeline as complete
+            pipeline_results["status"] = "completed"
+            pipeline_results["completed_at"] = self._get_timestamp()
+
+            # Generate summary report
+            pipeline_results["summary"] = self._generate_pipeline_summary(pipeline_results)
+
+            return pipeline_results
+
+        except Exception as e:
+            self.logger.error(f"Pipeline execution failed: {str(e)}", exc_info=e)
+            pipeline_results["status"] = "failed"
+            pipeline_results["error"] = str(e)
+            pipeline_results["failed_at"] = self._get_timestamp()
+            return pipeline_results
+
+    def _save_content_batch(self, content_batch: List[Dict[str, Any]], context: Dict[str, Any]) -> None:
+        """Save content batch to JSON file."""
+        try:
+            import os
+            import json
+
+            output_dir = context.get("output_dir", "outputs")
+            os.makedirs(output_dir, exist_ok=True)
+
+            output_path = os.path.join(output_dir, "content_batch.json")
+            with open(output_path, "w", encoding="utf-8") as f:
+                json.dump(content_batch, f, indent=2, ensure_ascii=False)
+
+            self.logger.info(f"Content batch saved to {output_path}")
+
+        except Exception as e:
+            self.logger.error(f"Failed to save content batch: {str(e)}")
+
+    def _generate_pipeline_summary(self, results: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate summary of pipeline execution."""
+        steps = results.get("steps", {})
+        outputs = results.get("outputs", {})
+
+        return {
+            "total_steps": len(steps),
+            "successful_steps": sum(1 for s in steps.values() if s.get("success")),
+            "failed_steps": sum(1 for s in steps.values() if not s.get("success")),
+            "content_items_generated": len(outputs.get("content_batch", [])),
+            "graphics_generated": len(outputs.get("graphics", [])),
+            "platforms_targeted": list(set(
+                c.get("platform") for c in outputs.get("content_batch", [])
+            )),
+            "brand_name": outputs.get("company_profile", {}).get("brand_name", "Unknown"),
+            "execution_time": self._calculate_execution_time(
+                results.get("started_at"),
+                results.get("completed_at")
+            )
+        }
+
+    def _calculate_execution_time(self, start: Optional[str], end: Optional[str]) -> str:
+        """Calculate execution time between two timestamps."""
+        if not start or not end:
+            return "Unknown"
+
+        try:
+            from datetime import datetime
+            start_dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
+            end_dt = datetime.fromisoformat(end.replace("Z", "+00:00"))
+            duration = end_dt - start_dt
+            return f"{duration.total_seconds():.2f} seconds"
+        except:
+            return "Unknown"
+
+    def _get_timestamp(self) -> str:
+        """Get current UTC timestamp."""
+        from datetime import datetime
+        return datetime.utcnow().isoformat() + "Z"
+
 
 # Global orchestrator instance
 orchestrator = AgentOrchestrator()

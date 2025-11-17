@@ -11,7 +11,6 @@ from app.agents.optimizer.prompts import (
     CAPTION_OPTIMIZATION_PROMPT,
     PERFORMANCE_PREDICTION_PROMPT,
 )
-from app.services.llm_service import llm_service
 import json
 
 

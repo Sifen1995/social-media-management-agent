@@ -49,6 +49,58 @@ Return as JSON array:
     }}
 ]"""
 
+ENHANCED_CONTENT_GENERATION_PROMPT = """Create {count} {content_type} variations for {platform} using brand profile and platform strategy.
+
+# Brand Profile
+Brand Name: {brand_name}
+Overview: {brand_overview}
+Mission: {brand_mission}
+Tone of Voice: {brand_voice}
+Target Audience: {target_audience}
+Brand Values: {brand_values}
+
+# Topic/Theme
+{topic}
+
+# Platform Strategy
+Recommended Formats: {recommended_formats}
+Content Mix: {content_mix}
+Engagement Tactics: {engagement_tactics}
+Hashtag Strategy: {hashtag_strategy}
+Best Practices: {best_practices}
+
+# Requirements
+{requirements}
+
+Create {count} content variations that:
+1. **Match Brand Voice**: Align perfectly with the brand's tone and values
+2. **Follow Platform Strategy**: Use recommended formats and tactics
+3. **Optimize for Engagement**: Apply platform-specific best practices
+4. **Include Strong Hooks**: Grab attention in first 3 seconds
+5. **Have Clear CTAs**: Drive desired audience action
+6. **Use Strategic Hashtags**: Follow the hashtag strategy provided
+
+For each variation, include different styles:
+- Variation 1: {style_1}
+- Variation 2: {style_2}
+- Variation 3: {style_3}
+
+Return as JSON array:
+[
+    {{
+        "variation": 1,
+        "style": "{style_1}",
+        "hook": "Attention-grabbing opening line",
+        "caption": "Full caption text...",
+        "hashtags": ["optimized", "hashtags", "here"],
+        "cta": "Clear call to action",
+        "content_format": "Reel/Post/Story/etc",
+        "estimated_engagement": "Predicted engagement level",
+        "strategy_alignment": "How it aligns with strategy",
+        "additional_notes": "Any extra tips"
+    }}
+]"""
+
 
 CAPTION_OPTIMIZATION_PROMPT = """Optimize this social media caption for {platform}:
 

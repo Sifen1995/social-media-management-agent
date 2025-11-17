@@ -11,7 +11,6 @@ from app.agents.social_listening.prompts import (
     VIRAL_CONTENT_ANALYSIS_PROMPT,
     CRISIS_DETECTION_PROMPT,
 )
-from app.services.llm_service import llm_service
 import json
 
 
