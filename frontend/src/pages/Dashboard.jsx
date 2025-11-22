@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { analyticsAPI, contentAPI, brandAPI } from '../services/api'
-import { FiTrendingUp, FiEdit3, FiCalendar, FiUsers, FiArrowRight } from 'react-icons/fi'
+import { FiTrendingUp, FiEdit3, FiCalendar, FiUsers, FiArrowRight, FiImage, FiSend } from 'react-icons/fi'
 import toast from 'react-hot-toast'
 
 export default function Dashboard() {
@@ -102,7 +102,7 @@ export default function Dashboard() {
       {/* Quick Actions */}
       <div className="card mb-8">
         <h2 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Link
             to="/content/generate"
             className="flex items-center gap-3 p-4 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors group"
@@ -115,6 +115,48 @@ export default function Dashboard() {
               <p className="text-sm text-gray-600">Create AI-powered posts</p>
             </div>
             <FiArrowRight className="text-primary-600 group-hover:translate-x-1 transition-transform" />
+          </Link>
+
+          <Link
+            to="/strategy"
+            className="flex items-center gap-3 p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors group"
+          >
+            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+              <FiTrendingUp className="text-white" />
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-gray-900">Strategy Planner</p>
+              <p className="text-sm text-gray-600">Platform optimization</p>
+            </div>
+            <FiArrowRight className="text-blue-600 group-hover:translate-x-1 transition-transform" />
+          </Link>
+
+          <Link
+            to="/graphics"
+            className="flex items-center gap-3 p-4 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors group"
+          >
+            <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center">
+              <FiImage className="text-white" />
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-gray-900">Graphics Generator</p>
+              <p className="text-sm text-gray-600">Design specifications</p>
+            </div>
+            <FiArrowRight className="text-indigo-600 group-hover:translate-x-1 transition-transform" />
+          </Link>
+
+          <Link
+            to="/poster"
+            className="flex items-center gap-3 p-4 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors group"
+          >
+            <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center">
+              <FiSend className="text-white" />
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-gray-900">Content Poster</p>
+              <p className="text-sm text-gray-600">Validate & post content</p>
+            </div>
+            <FiArrowRight className="text-orange-600 group-hover:translate-x-1 transition-transform" />
           </Link>
 
           <Link

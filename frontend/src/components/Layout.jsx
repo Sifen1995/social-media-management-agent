@@ -10,6 +10,9 @@ import {
   FiLogOut,
   FiMenu,
   FiX,
+  FiTrendingUp,
+  FiImage,
+  FiSend,
 } from 'react-icons/fi'
 import { useState } from 'react'
 
@@ -17,6 +20,9 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: FiHome },
   { name: 'Generate Content', href: '/content/generate', icon: FiEdit3 },
   { name: 'Content Calendar', href: '/content/calendar', icon: FiCalendar },
+  { name: 'Strategy Planner', href: '/strategy', icon: FiTrendingUp },
+  { name: 'Graphics Generator', href: '/graphics', icon: FiImage },
+  { name: 'Content Poster', href: '/poster', icon: FiSend },
   { name: 'Analytics', href: '/analytics', icon: FiBarChart2 },
   { name: 'Brands', href: '/brands', icon: FiBriefcase },
   { name: 'Social Accounts', href: '/social-accounts', icon: FiShare2 },

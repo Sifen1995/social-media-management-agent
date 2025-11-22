@@ -98,4 +98,20 @@ export const tasksAPI = {
   getStatus: (id) => api.get(`/tasks/${id}/status`),
 }
 
+// Strategy Agent API
+export const strategyAPI = {
+  generateStrategy: (data) => api.post('/agents/strategy', data),
+}
+
+// Graphics Agent API
+export const graphicsAPI = {
+  generateGraphic: (data) => api.post('/agents/graphics', data),
+}
+
+// Poster Agent API
+export const posterAPI = {
+  validateContent: (data) => api.post('/agents/poster/validate', data),
+  postContent: (data) => api.post('/agents/poster/post', data),
+}
+
 export default api

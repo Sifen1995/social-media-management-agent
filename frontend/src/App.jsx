@@ -11,6 +11,9 @@ import ContentCalendar from './pages/ContentCalendar'
 import Analytics from './pages/Analytics'
 import BrandManagement from './pages/BrandManagement'
 import SocialAccounts from './pages/SocialAccounts'
+import StrategyPlanner from './pages/StrategyPlanner'
+import GraphicsGenerator from './pages/GraphicsGenerator'
+import ContentPoster from './pages/ContentPoster'
 
 // Layout
 import Layout from './components/Layout'
@@ -42,6 +45,9 @@ function App() {
           <Route index element={<Dashboard />} />
           <Route path="content/generate" element={<ContentGenerator />} />
           <Route path="content/calendar" element={<ContentCalendar />} />
+          <Route path="strategy" element={<StrategyPlanner />} />
+          <Route path="graphics" element={<GraphicsGenerator />} />
+          <Route path="poster" element={<ContentPoster />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="brands" element={<BrandManagement />} />
           <Route path="social-accounts" element={<SocialAccounts />} />
