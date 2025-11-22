@@ -1,6 +1,11 @@
 """
 Social media scraper for extracting brand information from social profiles.
 
+Enhanced with:
+- Playwright support for JS-rendered content
+- Automatic profile discovery
+- Better data extraction from dynamic pages
+
 Supports:
 - Instagram
 - LinkedIn
@@ -21,9 +26,71 @@ class SocialScraper(ScraperBase):
     """
     Scrapes social media profiles to extract brand voice and content patterns.
 
-    Note: Uses lightweight HTML scraping only (no API keys required).
-    May have limitations due to platform restrictions.
+    Enhanced with Playwright for better JS-rendered content extraction.
+    Note: Uses HTML scraping only (no API keys required).
     """
+
+    def __init__(self, timeout: int = 30, use_playwright: bool = False):
+        """
+        Initialize social scraper.
+
+        Args:
+            timeout: Request timeout in seconds
+            use_playwright: Use Playwright for JS-heavy platforms
+        """
+        super().__init__(timeout)
+        self.use_playwright = use_playwright
+        self._playwright_browser = None
+        self._playwright_context = None
+
+    async def _init_playwright(self):
+        """Initialize playwright browser if needed."""
+        if not self.use_playwright:
+            return
+
+        try:
+            from playwright.async_api import async_playwright
+            self._playwright = await async_playwright().start()
+            self._playwright_browser = await self._playwright.chromium.launch(headless=True)
+            self._playwright_context = await self._playwright_browser.new_context(
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            )
+        except Exception as e:
+            logger.warning(f"Failed to initialize playwright: {str(e)}")
+            self.use_playwright = False
+
+    async def _close_playwright(self):
+        """Close playwright browser."""
+        if self._playwright_browser:
+            await self._playwright_browser.close()
+        if hasattr(self, '_playwright'):
+            await self._playwright.stop()
+
+    async def _fetch_with_playwright(self, url: str) -> Optional[str]:
+        """
+        Fetch page content using playwright for JS-heavy sites.
+
+        Args:
+            url: URL to fetch
+
+        Returns:
+            HTML content or None
+        """
+        if not self._playwright_context:
+            await self._init_playwright()
+
+        if not self._playwright_context:
+            return None
+
+        try:
+            page = await self._playwright_context.new_page()
+            await page.goto(url, wait_until='networkidle', timeout=self.timeout * 1000)
+            content = await page.content()
+            await page.close()
+            return content
+        except Exception as e:
+            logger.warning(f"Playwright failed for {url}: {str(e)}")
+            return None
 
     def scrape_all_socials(self, social_links: Dict[str, str]) -> Dict[str, Any]:
         """
@@ -95,6 +162,153 @@ class SocialScraper(ScraperBase):
         results["combined_insights"]["content_themes"] = list(set(results["combined_insights"]["content_themes"]))
 
         return results
+
+    async def scrape_all_socials_async(self, social_links: Dict[str, str]) -> Dict[str, Any]:
+        """
+        Async version with Playwright support for better extraction.
+
+        Args:
+            social_links: Dictionary of platform names to URLs
+
+        Returns:
+            Dictionary with scraped data from all platforms
+        """
+        results = {
+            "platforms": {},
+            "combined_insights": {
+                "all_captions": [],
+                "all_hashtags": [],
+                "tone_indicators": [],
+                "content_themes": []
+            },
+            "errors": []
+        }
+
+        # Initialize Playwright if enabled
+        if self.use_playwright:
+            await self._init_playwright()
+
+        for platform, url in social_links.items():
+            if not url or url.strip() == "":
+                continue
+
+            url = self.normalize_url(url)
+            if not self.is_valid_url(url):
+                results["errors"].append(f"Invalid {platform} URL: {url}")
+                continue
+
+            logger.info(f"Scraping {platform}: {url}")
+
+            platform_lower = platform.lower()
+            platform_data = None
+
+            # Try with Playwright first for JS-heavy platforms
+            if self.use_playwright and platform_lower in ['instagram', 'twitter', 'tiktok']:
+                html = await self._fetch_with_playwright(url)
+                if html:
+                    platform_data = self._scrape_platform_from_html(platform_lower, url, html)
+
+            # Fallback to standard scraping
+            if not platform_data or platform_data.get("error"):
+                if "instagram" in platform_lower:
+                    platform_data = self._scrape_instagram(url)
+                elif "linkedin" in platform_lower:
+                    platform_data = self._scrape_linkedin(url)
+                elif "twitter" in platform_lower or "x.com" in platform_lower:
+                    platform_data = self._scrape_twitter(url)
+                elif "tiktok" in platform_lower:
+                    platform_data = self._scrape_tiktok(url)
+                elif "facebook" in platform_lower:
+                    platform_data = self._scrape_facebook(url)
+                else:
+                    results["errors"].append(f"Unsupported platform: {platform}")
+                    continue
+
+            if platform_data and not platform_data.get("error"):
+                results["platforms"][platform] = platform_data
+
+                # Aggregate insights
+                if platform_data.get("captions"):
+                    results["combined_insights"]["all_captions"].extend(platform_data["captions"])
+                if platform_data.get("hashtags"):
+                    results["combined_insights"]["all_hashtags"].extend(platform_data["hashtags"])
+                if platform_data.get("tone_indicators"):
+                    results["combined_insights"]["tone_indicators"].extend(platform_data["tone_indicators"])
+                if platform_data.get("themes"):
+                    results["combined_insights"]["content_themes"].extend(platform_data["themes"])
+            else:
+                error_msg = platform_data.get("error", "Unknown error") if platform_data else "Failed to scrape"
+                results["errors"].append(f"{platform}: {error_msg}")
+
+        # Close Playwright
+        if self.use_playwright:
+            await self._close_playwright()
+
+        # Deduplicate and summarize
+        results["combined_insights"]["all_hashtags"] = list(set(results["combined_insights"]["all_hashtags"]))
+        results["combined_insights"]["content_themes"] = list(set(results["combined_insights"]["content_themes"]))
+
+        return results
+
+    def _scrape_platform_from_html(self, platform: str, url: str, html: str) -> Dict[str, Any]:
+        """
+        Generic platform scraper from HTML (works with Playwright-fetched content).
+
+        Args:
+            platform: Platform name
+            url: URL
+            html: HTML content
+
+        Returns:
+            Platform data
+        """
+        soup = self.parse_html(html)
+        if not soup:
+            return {"error": "Failed to parse HTML"}
+
+        # Extract all text and look for patterns
+        all_text = self.extract_text_from_soup(soup)
+
+        data = {
+            "platform": platform,
+            "url": url,
+            "bio": "",
+            "captions": [],
+            "hashtags": [],
+            "tone_indicators": [],
+            "themes": [],
+            "username": ""
+        }
+
+        # Try to extract bio from meta tags
+        meta_desc = soup.find('meta', property='og:description')
+        if meta_desc:
+            data["bio"] = meta_desc.get('content', '')
+
+        # Extract username from URL
+        username_patterns = {
+            'instagram': r'instagram\.com/([^/]+)',
+            'twitter': r'(?:twitter|x)\.com/([^/]+)',
+            'tiktok': r'tiktok\.com/@([^/]+)'
+        }
+
+        pattern = username_patterns.get(platform)
+        if pattern:
+            match = re.search(pattern, url)
+            if match:
+                data["username"] = match.group(1)
+
+        # Extract captions and hashtags
+        potential_captions = self._extract_potential_captions(all_text)
+        data["captions"] = potential_captions[:5]
+
+        hashtags = re.findall(r'#(\w+)', all_text)
+        data["hashtags"] = list(set(hashtags))[:20]
+
+        if data["bio"]:
+            data["tone_indicators"] = self._analyze_tone(data["bio"])
+
+        return data
 
     def _scrape_instagram(self, url: str) -> Dict[str, Any]:
         """

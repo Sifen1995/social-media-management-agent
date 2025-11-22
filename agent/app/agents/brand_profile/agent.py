@@ -10,6 +10,7 @@ from app.agents.base.agent import BaseAgent
 from app.scraper.website_scraper import WebsiteScraper
 from app.scraper.social_scraper import SocialScraper
 from app.scraper.extractor import BrandDataExtractor
+from app.scraper.social_finder import SocialProfileFinder
 from app.agents.brand_profile.prompts import (
     BRAND_PROFILE_SYSTEM_PROMPT,
     BRAND_PROFILE_ANALYSIS_PROMPT
@@ -44,10 +45,10 @@ class BrandProfileAgent(BaseAgent):
 
     async def execute(self, task: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Execute brand profile research.
+        Execute brand profile research with enhanced scraping.
 
         Args:
-            task: Must contain 'website' and optionally 'socials'
+            task: Must contain 'website' and optionally 'socials', 'company_name'
             context: Execution context
 
         Returns:
@@ -56,7 +57,13 @@ class BrandProfileAgent(BaseAgent):
         try:
             website_url = task.get("website", "").strip()
             social_links = task.get("socials", {})
-            use_playwright = task.get("use_playwright", False)
+            company_name = task.get("company_name", "")
+
+            # Enhanced scraping options (enabled by default)
+            use_playwright = task.get("use_playwright", True)  # Changed to True by default
+            auto_js_fallback = task.get("auto_js_fallback", True)
+            use_ocr = task.get("use_ocr", True)
+            auto_find_socials = task.get("auto_find_socials", True)
 
             if not website_url:
                 return self.create_result(
@@ -64,24 +71,51 @@ class BrandProfileAgent(BaseAgent):
                     message="Website URL is required"
                 )
 
-            logger.info(f"Starting brand profile research for: {website_url}")
+            logger.info(f"Starting enhanced brand profile research for: {website_url}")
 
-            # Step 1: Scrape website
-            logger.info("Step 1: Scraping website...")
-            website_scraper = WebsiteScraper(timeout=30, use_playwright=use_playwright)
+            # Step 0: Auto-discover social profiles if not provided
+            if auto_find_socials and (not social_links or len(social_links) < 2):
+                logger.info("Step 0: Auto-discovering social media profiles...")
+                social_finder = SocialProfileFinder(timeout=15)
+                discovered_profiles = social_finder.find_all_profiles(
+                    website_url=website_url,
+                    company_name=company_name
+                )
 
-            if use_playwright:
-                website_data = await website_scraper.scrape_website_async(website_url)
-            else:
-                website_data = website_scraper.scrape_website(website_url)
+                # Merge with provided social links (provided links take precedence)
+                for platform, url in discovered_profiles.items():
+                    if platform not in social_links:
+                        social_links[platform] = url
+                        logger.info(f"Auto-discovered {platform}: {url}")
+
+            # Step 1: Scrape website with enhanced extraction
+            logger.info("Step 1: Scraping website with enhanced extraction...")
+            website_scraper = WebsiteScraper(
+                timeout=30,
+                use_playwright=use_playwright,
+                auto_js_fallback=auto_js_fallback,
+                use_ocr=use_ocr
+            )
+
+            # Always use async version to support enhanced features
+            website_data = await website_scraper.scrape_website_async(website_url)
 
             if website_data.get("error"):
                 logger.warning(f"Website scraping failed: {website_data['error']}")
+            else:
+                extraction_meta = website_data.get("extraction_metadata", {})
+                logger.info(f"Website extraction methods used: {extraction_meta.get('sources_used', [])}")
+                logger.info(f"Website data quality: {extraction_meta.get('data_quality', 'unknown')}")
 
-            # Step 2: Scrape social media
+            # Step 2: Scrape social media with Playwright support
             logger.info("Step 2: Scraping social media...")
-            social_scraper = SocialScraper(timeout=30)
-            social_data = social_scraper.scrape_all_socials(social_links)
+            social_scraper = SocialScraper(timeout=30, use_playwright=use_playwright)
+
+            # Use async version if Playwright is enabled
+            if use_playwright:
+                social_data = await social_scraper.scrape_all_socials_async(social_links)
+            else:
+                social_data = social_scraper.scrape_all_socials(social_links)
 
             # Step 3: Extract and normalize data
             logger.info("Step 3: Extracting and normalizing data...")

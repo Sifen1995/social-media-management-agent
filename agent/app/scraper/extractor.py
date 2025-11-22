@@ -55,7 +55,7 @@ class BrandDataExtractor:
 
     def _normalize_website_data(self, website_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Normalize website scraped data.
+        Normalize website scraped data (enhanced to handle new data sources).
 
         Args:
             website_data: Raw website data
@@ -66,14 +66,18 @@ class BrandDataExtractor:
         if website_data.get("error"):
             return {"error": website_data["error"], "available": False}
 
+        # Use final_corpus if available (from enhanced scraper), otherwise fallback to raw_text
+        all_text = website_data.get("final_corpus") or website_data.get("raw_text", "")
+
         normalized = {
             "available": True,
             "base_url": website_data.get("base_url", ""),
             "meta_description": "",
             "organization_name": "",
             "key_sections": {},
-            "all_text": website_data.get("raw_text", ""),
-            "structured_data": website_data.get("structured_data", [])
+            "all_text": all_text,
+            "structured_data": website_data.get("structured_data", []),
+            "extraction_metadata": website_data.get("extraction_metadata", {})
         }
 
         # Extract meta description
@@ -217,7 +221,7 @@ class BrandDataExtractor:
 
     def _extract_key_insights(self, normalized_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Extract key insights from normalized data.
+        Extract key insights from normalized data (enhanced for new data sources).
 
         Args:
             normalized_data: Normalized data
@@ -232,7 +236,8 @@ class BrandDataExtractor:
             "top_hashtags": [],
             "dominant_tones": [],
             "content_themes": [],
-            "data_quality": "insufficient"
+            "data_quality": "insufficient",
+            "extraction_methods_used": []
         }
 
         # Check website data
@@ -242,10 +247,33 @@ class BrandDataExtractor:
             if website.get("organization_name"):
                 insights["brand_name_candidates"].append(website["organization_name"])
 
+            # Track enhanced extraction methods
+            extraction_meta = website.get("extraction_metadata", {})
+            if extraction_meta.get("used_js_rendering"):
+                insights["extraction_methods_used"].append("javascript_rendering")
+            if extraction_meta.get("used_ocr"):
+                insights["extraction_methods_used"].append("ocr")
+
+            # Use enhanced data quality assessment if available
+            if extraction_meta.get("data_quality"):
+                website_quality = extraction_meta["data_quality"]
+            else:
+                # Fallback to text length assessment
+                text_length = len(website.get("all_text", ""))
+                if text_length > 1500:
+                    website_quality = "excellent"
+                elif text_length > 500:
+                    website_quality = "good"
+                elif text_length > 150:
+                    website_quality = "fair"
+                else:
+                    website_quality = "poor"
+
         # Check social data
         social = normalized_data.get("social", {})
         if social.get("available"):
             insights["has_social_data"] = True
+            insights["extraction_methods_used"].append("social_media")
 
             combined = social.get("combined_insights", {})
 
@@ -260,11 +288,19 @@ class BrandDataExtractor:
             # Content themes
             insights["content_themes"] = combined.get("content_themes", [])
 
-        # Assess data quality
+        # Enhanced data quality assessment
         if insights["has_website_data"] and insights["has_social_data"]:
-            insights["data_quality"] = "excellent"
-        elif insights["has_website_data"] or insights["has_social_data"]:
-            insights["data_quality"] = "good"
+            # Both sources available
+            if website_quality in ["excellent", "good"]:
+                insights["data_quality"] = "excellent"
+            else:
+                insights["data_quality"] = "good"
+        elif insights["has_website_data"]:
+            # Only website data
+            insights["data_quality"] = website_quality
+        elif insights["has_social_data"]:
+            # Only social data
+            insights["data_quality"] = "fair"
         else:
             insights["data_quality"] = "insufficient"
 
